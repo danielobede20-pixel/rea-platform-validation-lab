@@ -23,7 +23,7 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update -qq
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq libmagic-dev libhyperscan-dev liblzma-dev libbz2-dev libssl-dev liblzo2-dev libucl-dev liblz4-dev zlib1g-dev pkg-config p7zip-full zstd lz4
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq libmagic-dev libhyperscan-dev liblzma-dev libbz2-dev libssl-dev liblzo2-dev libucl-dev liblz4-dev zlib1g-dev libfontconfig1-dev libfreetype6-dev pkg-config p7zip-full zstd lz4
           cargo install binwalk --version 3.1.0 --locked --root "$RUNNER_TEMP/binwalk-prefix"
           python3 -m venv "$RUNNER_TEMP/unblob-env"
           "$RUNNER_TEMP/unblob-env/bin/pip" install --disable-pip-version-check 'unblob==26.6.4'
