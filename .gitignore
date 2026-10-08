@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+*.log
+*.bin
+*.dll
+*.exe
+*.apk
+native.json
+android.json
+classes.json
+firmware-*.json
+lab-result.json
