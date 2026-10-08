@@ -1,0 +1,52 @@
+name: REA Firmware Linux
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  firmware-proof:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Build synthetic compressed firmware-like blob
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/create_firmware_fixture.py
+          sha256sum firmware-sample.bin
+      - name: Install isolated external parsers
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq libmagic-dev libhyperscan-dev liblzma-dev libbz2-dev libssl-dev liblzo2-dev libucl-dev liblz4-dev zlib1g-dev pkg-config p7zip-full zstd lz4
+          cargo install binwalk --version 3.1.0 --locked --root "$RUNNER_TEMP/binwalk-prefix"
+          python3 -m venv "$RUNNER_TEMP/unblob-env"
+          "$RUNNER_TEMP/unblob-env/bin/pip" install --disable-pip-version-check 'unblob==26.6.4'
+          echo "REA_BINWALK_COMMAND=$RUNNER_TEMP/binwalk-prefix/bin/binwalk" >> "$GITHUB_ENV"
+          echo "REA_UNBLOB_COMMAND=$RUNNER_TEMP/unblob-env/bin/unblob" >> "$GITHUB_ENV"
+          echo "REA_FIRMWARE_PRLIMIT_COMMAND=/usr/bin/prlimit" >> "$GITHUB_ENV"
+      - name: Confirm parser versions
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$REA_BINWALK_COMMAND" --version
+          "$REA_UNBLOB_COMMAND" --version
+          test -x /usr/bin/prlimit
+      - name: Install REA 5.0.0 locally
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --prefix "$RUNNER_TEMP/rea" --no-save --ignore-scripts --no-audit --no-fund rea-agents@5.0.0
+          echo "REA_CLI=$RUNNER_TEMP/rea/node_modules/rea-agents/scripts/rea.mjs" >> "$GITHUB_ENV"
+      - name: Inspect and extract bounded synthetic firmware
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 200s node "$REA_CLI" inspect-firmware-regions "$GITHUB_WORKSPACE/firmware-sample.bin" --format json > firmware-inspect.json
+          timeout 200s node "$REA_CLI" extract-firmware "$GITHUB_WORKSPACE/firmware-sample.bin" "$RUNNER_TEMP/firmware-output" --format json > firmware-extract.json
+          python3 scripts/verify_firmware.py
